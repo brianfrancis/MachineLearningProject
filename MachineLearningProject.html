@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8">
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<meta name="author" content="Brian Francis" />
+
+
+<title>Machine Learning Project</title>
+
+<script src="MachineLearningProject_files/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="MachineLearningProject_files/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="MachineLearningProject_files/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="MachineLearningProject_files/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="MachineLearningProject_files/bootstrap-3.3.5/shim/respond.min.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<link rel="stylesheet"
+      href="MachineLearningProject_files/highlight/default.css"
+      type="text/css" />
+<script src="MachineLearningProject_files/highlight/highlight.js"></script>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs && document.readyState && document.readyState === "complete") {
+   window.setTimeout(function() {
+      hljs.initHighlighting();
+   }, 0);
+}
+</script>
+
+
+
+
+</head>
+
+<body>
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+  height: auto;
+}
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+</style>
+
+
+<div class="container-fluid main-container">
+
+<!-- tabsets -->
+<script src="MachineLearningProject_files/navigation-1.0/tabsets.js"></script>
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+</script>
+
+<!-- code folding -->
+
+
+
+
+
+
+<div class="fluid-row" id="header">
+
+
+<h1 class="title">Machine Learning Project</h1>
+<h4 class="author"><em>Brian Francis</em></h4>
+<h4 class="date"><em>Saturday, February 27, 2016</em></h4>
+
+</div>
+
+
+<div id="prediction-of-weight-lifting-exercises-dataset" class="section level1">
+<h1>Prediction of Weight Lifting Exercises Dataset</h1>
+<div id="synopsis" class="section level2">
+<h2>Synopsis</h2>
+<p>This report describes the the creation of a prediction model to determe if a person is performing barbell lifting exercises correctly or not. Participants performed the exercise in 5 different manners (each a “classe”) while wearing a personal fitness device that measured the accelerometer readings while performig the exercise. A description of the study can be found here: <a href="http://groupware.les.inf.puc-rio.br/har" class="uri">http://groupware.les.inf.puc-rio.br/har</a> (see the section on the Weight Lifting Exercise Dataset) and the data used to build the model can be found here: <a href="https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv" class="uri">https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv</a>.</p>
+<p>The model will attempt to predict the classe of the exercise performed based on the other data collected. The model will be built on a subset of the data collected (the training set) and then the prediction will be applied to the remaining data (the testing set) to asssess out of sample error rate. Finally we will attempt to predict the classe for a set of 20 observations where the true classe is not given to us.</p>
+</div>
+<div id="getting-and-cleaning-the-data" class="section level2">
+<h2>Getting and Cleaning the Data</h2>
+<p>First we must read in the data and remove any predictors that are not helpful for predicting the classes in the final data set.</p>
+<p>Then we split the training data were split into training set and a testing set The training set will be used to build the model. The testing set will be used to estimate the model’s out of sample error</p>
+<pre class="r"><code>##split data into training and testing
+set.seed(96492)
+inTrain &lt;- createDataPartition(y=data_sub$classe,
+                              p=0.7, list=FALSE)
+training &lt;- data_sub[inTrain,]
+testing &lt;- data_sub[-inTrain,]</code></pre>
+</div>
+<div id="exploratory-data" class="section level2">
+<h2>Exploratory Data</h2>
+<p>Below are the density plots for each of the possible predictors. The multi-modal densities indicate possible interaction between the predictors. <img src="MachineLearningProject_files/figure-html/unnamed-chunk-2-1.png" title="" alt="" width="672" /><img src="MachineLearningProject_files/figure-html/unnamed-chunk-2-2.png" title="" alt="" width="672" /><img src="MachineLearningProject_files/figure-html/unnamed-chunk-2-3.png" title="" alt="" width="672" /><img src="MachineLearningProject_files/figure-html/unnamed-chunk-2-4.png" title="" alt="" width="672" /><img src="MachineLearningProject_files/figure-html/unnamed-chunk-2-5.png" title="" alt="" width="672" /><img src="MachineLearningProject_files/figure-html/unnamed-chunk-2-6.png" title="" alt="" width="672" /></p>
+</div>
+<div id="selecting-a-model" class="section level2">
+<h2>Selecting a model</h2>
+<p>Since this is a classification problem, some of the common models used would be linear discriminant analysis and decision trees. We fit three different models (lda, decision tree, and bootstrap aggregated decision tree) to compare their accuracy. For all the models we use perform 1 cross validations, with 10 folds.</p>
+<pre class="r"><code>##do cross validation, 3 folds 1 time
+fitControl &lt;- trainControl(method = &quot;repeatedcv&quot;,number = 10,repeats = 1)
+
+##linear discriminant analysis
+train.lda &lt;-  train(classe ~ ., data=training, method=&quot;lda&quot;, trControl = fitControl)
+## random tree
+train.rpart&lt;- train(classe ~ ., data=training, method=&quot;rpart&quot;, trControl = fitControl)
+## bagged tree
+train.treebag &lt;- train(classe ~ ., data=training, method=&quot;treebag&quot;, trControl = fitControl)</code></pre>
+<p>The accuracy estimate from the cross validation indicates that the bagged tree model works quite well.</p>
+<table>
+<thead>
+<tr class="header">
+<th align="left">method</th>
+<th align="left">Accuracy</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">lda</td>
+<td align="left">0.733</td>
+</tr>
+<tr class="even">
+<td align="left">rpart</td>
+<td align="left">0.561</td>
+</tr>
+<tr class="odd">
+<td align="left">treebag</td>
+<td align="left">0.987</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="check-accuracy-on-test-set" class="section level2">
+<h2>Check Accuracy on Test Set</h2>
+<p>Now we will apply our bagged tree model to the known values we held out to get an estimate of out of sample error which we see is about 99%.</p>
+<pre class="r"><code>pred1 &lt;- predict(train.treebag, testing)
+cm &lt;- confusionMatrix(pred1, testing$classe)
+kable(data.frame(Value=cm$overall[1:4]), digits=4, align=&quot;l&quot;)</code></pre>
+<table>
+<thead>
+<tr class="header">
+<th align="left"></th>
+<th align="left">Value</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td align="left">Accuracy</td>
+<td align="left">0.9891</td>
+</tr>
+<tr class="even">
+<td align="left">Kappa</td>
+<td align="left">0.9862</td>
+</tr>
+<tr class="odd">
+<td align="left">AccuracyLower</td>
+<td align="left">0.9861</td>
+</tr>
+<tr class="even">
+<td align="left">AccuracyUpper</td>
+<td align="left">0.9916</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div id="predict-for-new-observations" class="section level2">
+<h2>Predict for New Observations</h2>
+<p>Finally we’ll predict the classes for the new 20 observations</p>
+<pre class="r"><code>final_pred &lt;- predict(train.treebag, final_testing)
+print(final_pred)</code></pre>
+<pre><code>##  [1] B A B A A E D B A A B C B A E E A B B B
+## Levels: A B C D E</code></pre>
+</div>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+$(document).ready(function () {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+});
+
+</script>
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://cdn.mathjax.org/mathjax/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>

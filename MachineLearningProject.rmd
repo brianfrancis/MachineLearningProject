@@ -1,0 +1,167 @@
+---
+title: "Machine Learning Project"
+author: "Brian Francis"
+date: "Saturday, February 27, 2016"
+output:
+  html_document:
+    self_contained: no
+---
+# Prediction of Weight Lifting Exercises Dataset
+
+## Synopsis
+This report describes the the creation of a prediction model to determe if a person is performing barbell lifting exercises correctly or not.  Participants performed the exercise in 5 different manners (each a "classe") while wearing a personal fitness device that measured the accelerometer readings while performig the exercise.  A description of the study can be found here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset) and the data used to build the model can be found here: https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv.
+
+The model will attempt to predict the classe of the exercise performed based on the other data collected.  The model will be built on a subset of the data collected (the training set) and then the prediction will be applied to the remaining data (the testing set) to asssess out of sample error rate.  Finally we will attempt to predict the classe for a set of 20 observations where the true classe is not given to us.
+
+##Getting and Cleaning the Data
+First we must read in the data and remove any predictors that are not helpful for predicting the classes in the final data set.
+
+```{r, cache=FALSE, message=FALSE, echo=FALSE}
+library(caret)
+library(reshape2)
+library(knitr)
+```
+
+```{r data loading and cleansing, message=FALSE, cache=FALSE, echo=FALSE}
+setwd("C:/Users/bfrancis/Desktop/Coursera/Machine Learning/Assignment")
+
+##load training data
+data <- read.csv("pml-training.csv")
+
+##load observation where classe is not given
+final_testing <- read.csv("pml-testing.csv")
+
+
+##get the columns that have values in the testing set
+##remove columns with no values in the testing set from the training set
+c <- colSums(!is.na(final_testing)) > 0
+data_sub <- data[,c]
+
+##since we don't have data over time for the data set we want to predict then the time stamp and related fields are not useful so we will remove them
+data_sub <- data_sub[,-c(1,3,4,5,6,7)]
+```
+
+Then we split the training data were split into training set and a testing set
+The training set will be used to build the model.
+The testing set will be used to estimate the model's out of sample error
+```{r split data, cache=FALSE}
+##split data into training and testing
+set.seed(96492)
+inTrain <- createDataPartition(y=data_sub$classe,
+                              p=0.7, list=FALSE)
+training <- data_sub[inTrain,]
+testing <- data_sub[-inTrain,]
+
+```
+
+
+## Exploratory Data
+Below are the density plots for each of the possible predictors.  The multi-modal densities indicate possible interaction between the predictors.
+```{r, echo=FALSE, cache=FALSE}
+p1 <- featurePlot(x = training[, 2:10],
+            y = training$classe,
+            plot = "density",
+            scales = list(x = list(relation="free"),
+                          y = list(relation="free")),
+            adjust = 1.5,
+            pch = "|",
+            layout = c(3,3),
+            auto.key = list(columns = 3))
+p2 <- featurePlot(x = training[, 11:19],
+            y = training$classe,
+            plot = "density",
+            scales = list(x = list(relation="free"),
+                          y = list(relation="free")),
+            adjust = 1.5,
+            pch = "|",
+            layout = c(3,3),
+            auto.key = list(columns = 3))
+p3 <- featurePlot(x = training[, 20:28],
+            y = training$classe,
+            plot = "density",
+            scales = list(x = list(relation="free"),
+                          y = list(relation="free")),
+            adjust = 1.5,
+            pch = "|",
+            layout = c(3,3),
+            auto.key = list(columns = 3))
+
+p4 <- featurePlot(x = training[, 29:37],
+            y = training$classe,
+            plot = "density",
+            scales = list(x = list(relation="free"),
+                          y = list(relation="free")),
+            adjust = 1.5,
+            pch = "|",
+            layout = c(3,3),
+            auto.key = list(columns = 3))
+p5 <- featurePlot(x = training[, 38:45],
+            y = training$classe,
+            plot = "density",
+            scales = list(x = list(relation="free"),
+                          y = list(relation="free")),
+            adjust = 1.5,
+            pch = "|",
+            layout = c(3,3),
+            auto.key = list(columns = 3))
+
+p6 <- featurePlot(x = training[, 46:53],
+            y = training$classe,
+            plot = "density",
+            scales = list(x = list(relation="free"),
+                          y = list(relation="free")),
+            adjust = 1.5,
+            pch = "|",
+            layout = c(3,3),
+            auto.key = list(columns = 3))
+
+p1; p2; p3; p4; p5; p6
+```
+
+
+## Selecting a model
+
+Since this is a classification problem, some of the common models used would be linear discriminant analysis and decision trees.  We fit three different models (lda, decision tree, and bootstrap aggregated decision tree) to compare their accuracy.  For all the models we use perform 1 cross validations, with 10 folds.
+```{r, cache=FALSE, message=FALSE}
+
+##do cross validation, 3 folds 1 time
+fitControl <- trainControl(method = "repeatedcv",number = 10,repeats = 1)
+
+##linear discriminant analysis
+train.lda <-  train(classe ~ ., data=training, method="lda", trControl = fitControl)
+## random tree
+train.rpart<- train(classe ~ ., data=training, method="rpart", trControl = fitControl)
+## bagged tree
+train.treebag <- train(classe ~ ., data=training, method="treebag", trControl = fitControl)
+
+```
+
+The accuracy estimate from the cross validation indicates that the bagged tree model works quite well.
+```{r, cache=FALSE, echo=FALSE}
+
+
+t <- data.frame(method=c("lda", "rpart", "treebag"),
+        Accuracy=c(train.lda$results$Accuracy, 
+                   max(train.rpart$results$Accuracy),
+                   train.treebag$results$Accuracy
+                   )
+        )
+kable(t, digits=3, align="l")
+        
+```
+
+## Check Accuracy on Test Set
+Now we will apply our bagged tree model to the known values we held out to get an estimate of out of sample error which we see is about 99%.
+```{r, message=FALSE, cache=FALSE}
+
+pred1 <- predict(train.treebag, testing)
+cm <- confusionMatrix(pred1, testing$classe)
+kable(data.frame(Value=cm$overall[1:4]), digits=4, align="l")
+```
+
+## Predict for New Observations
+Finally we'll predict the classes for the new 20 observations
+```{r, cache=FALSE}
+final_pred <- predict(train.treebag, final_testing)
+print(final_pred)
+```
